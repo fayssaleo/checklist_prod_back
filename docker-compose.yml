@@ -1,0 +1,80 @@
+version: "3.7"
+
+services:
+  # PHP-FPM - Service
+  checklist:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: checklist
+    restart: unless-stopped
+    tty: true
+    working_dir: /var/www
+    depends_on:
+      - checklist_db
+    volumes:
+      - ./:/var/www
+      - ./docker-files/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+
+    networks:
+      - checklist-network
+
+  # NGINX - Service
+  checklist_webserver:
+    image: nginx:alpine
+    container_name: checklist_webserver
+    restart: unless-stopped
+    tty: true
+
+    ports:
+      - "9008:80"
+      - "9009:443"
+
+    volumes:
+      - ./:/var/www
+      - ./docker-files/nginx/conf.d/:/etc/nginx/conf.d/
+
+    networks:
+      - checklist-network
+
+  # MariaDB - Service
+  checklist_db:
+    image: mysql:5.7
+    container_name: checklist_db
+    restart: unless-stopped
+    tty: true
+
+    ports:
+      - "3310:3306"
+
+    environment:
+      MYSQL_DATABASE: "checklist"
+      MYSQL_ROOT_PASSWORD: "checklist"
+      MYSQL_PASSWORD: "checklist"
+      MYSQL_USER: "checklist"
+    volumes:
+      - ./docker-files/mysql:/var/lib/mysql
+    networks:
+      - checklist-network
+
+  checklist_phpmyadmin:
+    container_name: checklist_phpmyadmin
+    depends_on:
+      - checklist_db
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - "9010:80"
+    environment:
+      PMA_HOST: checklist_db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+    networks:
+      - checklist-network
+
+# Networks
+networks:
+  checklist-network:
+    driver: bridge
